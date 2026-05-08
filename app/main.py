@@ -1,13 +1,28 @@
 from fastapi import FastAPI
-from app.routes import watchlist_routes
+from fastapi.middleware.cors import CORSMiddleware
+
 from app.routes import stocks
 from app.routes import user_routes
-from app.auth import auth_routes
+from app.routes import watchlist_routes
 from app.routes import portfolio_routes
+
+from app.auth import auth_routes
+
+from app.websocket import stock_ws
+
 app = FastAPI(
     title="Trading Copilot API",
     description="AI Trading Copilot Backend APIs",
     version="1.0.0"
+)
+
+# CORS Configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Stock Routes
@@ -45,9 +60,13 @@ app.include_router(
     tags=["Portfolio"]
 )
 
+# WebSocket Routes
+app.include_router(stock_ws.router)
+
 # Home Route
 @app.get("/")
 def home():
+
     return {
         "status": "success",
         "message": "Trading Copilot Backend Running Successfully"

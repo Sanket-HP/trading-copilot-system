@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+</head>
+<body>
+
+<h2>Live Stock Price</h2>
+
+<div id="price"></div>
+
+<script>
+
+const ws = new WebSocket(
+    "ws://127.0.0.1:8000/ws/stocks/RELIANCE.NS"
+);
+
+ws.onmessage = function(event) {
+
+    const data = JSON.parse(event.data);
+
+    document.getElementById("price").innerHTML =
+        JSON.stringify(data);
+};
+
+</script>
+
+</body>
+</html>

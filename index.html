@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Trading Copilot | Fintech Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-dark: #0a0b0d;
+            --bg-card: #15171c;
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --success-green: #10b981;
+            --danger-red: #ef4444;
+            --text-muted: #94a3b8;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: #ffffff;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .glass-card {
+            background: rgba(21, 23, 28, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 1rem;
+        }
+
+        .nav-link.active {
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0) 100%);
+            border-left: 3px solid var(--accent-blue);
+            color: var(--accent-blue);
+        }
+
+        .ai-glow {
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.3);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+        .loader {
+            border: 3px solid #f3f3f31a;
+            border-top: 3px solid var(--accent-blue);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .page-section { display: none; }
+        .page-section.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div id="app" class="flex min-h-screen">
+        
+        <!-- Sidebar Navigation -->
+        <aside id="sidebar" class="hidden w-64 bg-[#0f1115] border-r border-gray-800 flex-col sticky top-0 h-screen">
+            <div class="p-6">
+                <div class="flex items-center gap-3 mb-10">
+                    <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-robot text-white text-xl"></i>
+                    </div>
+                    <span class="text-xl font-bold tracking-tight">AI COPILOT</span>
+                </div>
+
+                <nav class="space-y-2">
+                    <a href="#" onclick="router.navigate('dashboard')" class="nav-link flex items-center gap-3 p-3 rounded-lg text-gray-400 hover:text-white transition-all">
+                        <i class="fas fa-chart-line w-5"></i> Dashboard
+                    </a>
+                    <a href="#" onclick="router.navigate('watchlist')" class="nav-link flex items-center gap-3 p-3 rounded-lg text-gray-400 hover:text-white transition-all">
+                        <i class="fas fa-list w-5"></i> Watchlist
+                    </a>
+                    <a href="#" onclick="router.navigate('portfolio')" class="nav-link flex items-center gap-3 p-3 rounded-lg text-gray-400 hover:text-white transition-all">
+                        <i class="fas fa-wallet w-5"></i> Portfolio
+                    </a>
+                </nav>
+            </div>
+
+            <div class="mt-auto p-6 border-t border-gray-800">
+                <div id="user-info" class="flex items-center gap-3 mb-4">
+                    <div class="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-xs font-bold">JD</div>
+                    <div class="overflow-hidden">
+                        <p id="nav-username" class="text-sm font-medium truncate">Guest User</p>
+                        <p class="text-xs text-gray-500">Premium Plan</p>
+                    </div>
+                </div>
+                <button onclick="auth.logout()" class="w-full flex items-center justify-center gap-2 p-2 rounded-lg bg-gray-800 hover:bg-red-900/30 text-gray-400 hover:text-red-400 transition-all text-sm">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col h-screen overflow-y-auto">
+            
+            <header id="top-nav" class="hidden h-16 border-b border-gray-800 bg-[#0a0b0d]/80 backdrop-blur sticky top-0 z-50 flex items-center justify-between px-8">
+                <div class="flex items-center flex-1 max-w-xl">
+                    <div class="relative w-full">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"></i>
+                        <input type="text" id="global-search" placeholder="Search Symbol (e.g. RELIANCE.NS)..." 
+                               class="w-full bg-gray-900 border border-gray-700 rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:border-blue-500 text-sm transition-all">
+                        <div id="search-results" class="absolute top-full left-0 right-0 mt-2 bg-gray-900 border border-gray-800 rounded-lg shadow-2xl hidden z-50 overflow-hidden">
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2 px-3 py-1 bg-green-500/10 text-green-500 rounded-full text-xs font-medium border border-green-500/20">
+                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        LIVE CONNECTED
+                    </div>
+                </div>
+            </header>
+
+            <div id="page-content" class="p-8">
+                
+                <!-- Login Page -->
+                <section id="login-page" class="page-section">
+                    <div class="max-w-md mx-auto mt-20 p-8 glass-card">
+                        <div class="text-center mb-8">
+                            <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 ai-glow">
+                                <i class="fas fa-robot text-white text-3xl"></i>
+                            </div>
+                            <h2 class="text-2xl font-bold">Welcome Back</h2>
+                        </div>
+                        <form id="login-form" class="space-y-4">
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">Email / Username</label>
+                                <input type="text" id="login-username" required class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 focus:outline-none focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">Password</label>
+                                <input type="password" id="login-password" required class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 focus:outline-none focus:border-blue-500">
+                            </div>
+                            <button type="submit" id="login-btn" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg font-bold transition-all mt-4 flex items-center justify-center gap-2">
+                                <span>Sign In</span>
+                            </button>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- Dashboard Page -->
+                <section id="dashboard-page" class="page-section">
+                    <div class="grid grid-cols-12 gap-6">
+                        <div class="col-span-12 lg:col-span-8 space-y-6">
+                            <div class="glass-card p-6">
+                                <div class="flex items-center justify-between mb-6">
+                                    <div>
+                                        <h2 id="current-symbol-title" class="text-2xl font-bold">RELIANCE.NS</h2>
+                                        <div class="flex items-center gap-3 mt-1">
+                                            <span id="live-price" class="text-3xl font-mono text-blue-400">0.00</span>
+                                            <span id="live-change" class="text-sm font-medium text-green-500">+0.00%</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button onclick="actions.buyStock()" class="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-bold transition-all">BUY</button>
+                                        <button onclick="actions.toggleWatchlist()" id="watchlist-toggle-btn" class="p-2 border border-gray-700 rounded-lg hover:bg-gray-800 transition-all">
+                                            <i class="far fa-star"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="h-[400px] w-full relative">
+                                    <canvas id="mainChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-3 gap-6">
+                                <div class="glass-card p-4 border-l-4 border-blue-500">
+                                    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">RSI (14)</p>
+                                    <p id="rsi-val" class="text-xl font-bold font-mono">--</p>
+                                    <p id="rsi-status" class="text-xs text-gray-400">Neutral</p>
+                                </div>
+                                <div class="glass-card p-4 border-l-4 border-purple-500">
+                                    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">MACD Trend</p>
+                                    <p id="macd-val" class="text-xl font-bold font-mono">--</p>
+                                    <p id="macd-status" class="text-xs text-gray-400">Neutral</p>
+                                </div>
+                                <div class="glass-card p-4 border-l-4 border-yellow-500">
+                                    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Volume</p>
+                                    <p id="volume-val" class="text-xl font-bold font-mono">--</p>
+                                    <p class="text-xs text-gray-400">Live Tick</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- AI Signal Sidebar -->
+                        <div class="col-span-12 lg:col-span-4 space-y-6">
+                            <div class="glass-card p-6 border border-purple-500/30 bg-gradient-to-br from-purple-900/10 to-transparent">
+                                <div class="flex items-center gap-2 mb-6">
+                                    <i class="fas fa-brain text-purple-500"></i>
+                                    <h3 class="font-bold text-lg">AI Co-Pilot Signal</h3>
+                                </div>
+                                
+                                <div id="ai-loading" class="flex flex-col items-center justify-center py-10 hidden">
+                                    <div class="loader mb-4"></div>
+                                    <p class="text-sm text-gray-500">Analyzing market data...</p>
+                                </div>
+
+                                <div id="ai-content">
+                                    <div class="text-center mb-8">
+                                        <div id="signal-badge" class="inline-block px-6 py-2 rounded-full text-2xl font-black bg-gray-800 mb-2">WAITING...</div>
+                                        <p class="text-sm text-gray-400">Confidence: <span id="signal-conf">0%</span></p>
+                                    </div>
+                                    <div class="p-4 bg-white/5 rounded-xl border border-white/5">
+                                        <p class="text-xs text-gray-500 mb-1">Analysis Reasoning</p>
+                                        <p id="ai-reasoning" class="text-sm leading-relaxed text-gray-300 italic">Select a stock to generate insights.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Portfolio Page -->
+                <section id="portfolio-page" class="page-section">
+                    <div class="flex justify-between items-end mb-8">
+                        <div>
+                            <h2 class="text-3xl font-bold">My Portfolio</h2>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-gray-500 uppercase tracking-widest">Total Value</p>
+                            <p id="total-portfolio-value" class="text-4xl font-black text-blue-400">₹ 0.00</p>
+                        </div>
+                    </div>
+                    <div class="glass-card overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="bg-gray-800/50 text-gray-400 text-xs uppercase">
+                                    <th class="p-4 font-medium">Instrument</th>
+                                    <th class="p-4 font-medium text-right">Qty.</th>
+                                    <th class="p-4 font-medium text-right">Avg. Price</th>
+                                    <th class="p-4 font-medium text-right">LTP</th>
+                                    <th class="p-4 font-medium text-right">P&L</th>
+                                    <th class="p-4 font-medium text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="portfolio-table-body" class="text-sm"></tbody>
+                        </table>
+                        <div id="portfolio-empty" class="p-20 text-center text-gray-500 hidden">
+                            <p>No holdings found.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Watchlist Page -->
+                <section id="watchlist-page" class="page-section">
+                    <div class="mb-8">
+                        <h2 class="text-3xl font-bold">Market Watch</h2>
+                    </div>
+                    <div id="watchlist-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+                    <div id="watchlist-empty" class="p-20 text-center text-gray-500 hidden">
+                        <p>Your watchlist is empty.</p>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Component -->
+    <div id="toast" class="fixed bottom-8 right-8 z-[100] px-6 py-3 rounded-lg shadow-2xl transform translate-y-20 transition-all duration-300 opacity-0 flex items-center gap-3">
+        <i id="toast-icon"></i>
+        <span id="toast-message" class="font-medium"></span>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://127.0.0.1:8000';
+        const WS_URL = 'ws://127.0.0.1:8000/ws/stocks';
+
+        const state = {
+            token: localStorage.getItem('jwt_token') || null,
+            user: null,
+            currentSymbol: 'RELIANCE.NS',
+            ws: null,
+            chart: null
+        };
+
+        const api = {
+            async request(endpoint, method = 'GET', body = null) {
+                const headers = { 'Content-Type': 'application/json' };
+                if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
+                const options = { method, headers };
+                if (body) options.body = JSON.stringify(body);
+                const response = await fetch(`${BASE_URL}${endpoint}`, options);
+                if (response.status === 401) { auth.logout(); throw new Error('Session expired'); }
+                return await response.json();
+            },
+            login: (u, p) => api.request('/auth/login', 'POST', { email: u, password: p }),
+            getProfile: () => api.request('/user/profile'),
+            getHistory: (sym) => api.request(`/stocks/history/${sym}`),
+            getAISignal: (sym) => api.request(`/stocks/ai-signal/${sym}`),
+            getRSI: (sym) => api.request(`/stocks/rsi/${sym}`),
+            getMACD: (sym) => api.request(`/stocks/macd/${sym}`),
+            getWatchlist: () => api.request('/watchlist/'),
+            addToWatchlist: (sym) => api.request(`/watchlist/add/${sym}`, 'POST'),
+            getPortfolio: () => api.request('/portfolio/'),
+            buyStock: (sym, qty) => api.request(`/portfolio/buy/${sym}?quantity=${qty}`, 'POST')
+        };
+
+        const router = {
+            navigate(view) {
+                if (!state.token && view !== 'login') { this.navigate('login'); return; }
+                document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+                const target = document.getElementById(`${view}-page`);
+                if (target) target.classList.add('active');
+                if (view === 'dashboard') ui.loadDashboard();
+                if (view === 'portfolio') ui.loadPortfolio();
+                if (view === 'watchlist') ui.loadWatchlist();
+            }
+        };
+
+        const auth = {
+            async login(e) {
+                e.preventDefault();
+                const user = document.getElementById('login-username').value;
+                const pass = document.getElementById('login-password').value;
+                try {
+                    const data = await api.login(user, pass);
+                    if (data.access_token) {
+                        state.token = data.access_token;
+                        localStorage.setItem('jwt_token', data.access_token);
+                        this.initApp();
+                    }
+                } catch (err) { ui.showToast('Login Failed', 'error'); }
+            },
+            async initApp() {
+                if (!state.token) { router.navigate('login'); return; }
+                try {
+                    const profile = await api.getProfile();
+                    state.user = profile;
+                    document.getElementById('nav-username').innerText = profile.full_name || profile.username;
+                    document.getElementById('sidebar').classList.replace('hidden', 'flex');
+                    document.getElementById('top-nav').classList.remove('hidden');
+                    router.navigate('dashboard');
+                } catch (err) { this.logout(); }
+            },
+            logout() {
+                state.token = null;
+                localStorage.removeItem('jwt_token');
+                window.location.reload();
+            }
+        };
+
+        const ui = {
+            showToast(msg, type = 'info') {
+                const toast = document.getElementById('toast');
+                toast.className = `fixed bottom-8 right-8 z-[100] px-6 py-3 rounded-lg shadow-2xl transform transition-all duration-300 flex items-center gap-3 ${type === 'success' ? 'bg-green-600' : 'bg-red-600'}`;
+                document.getElementById('toast-message').innerText = msg;
+                toast.classList.remove('translate-y-20', 'opacity-0');
+                setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3000);
+            },
+
+            async loadDashboard() {
+                const sym = state.currentSymbol;
+                document.getElementById('current-symbol-title').innerText = sym;
+                try {
+                    const [history, signal, rsi, macd] = await Promise.all([
+                        api.getHistory(sym), api.getAISignal(sym), api.getRSI(sym), api.getMACD(sym)
+                    ]);
+                    this.renderChart(history);
+                    this.renderSignal(signal);
+                    this.renderIndicators(rsi, macd);
+                    websocket.connect(sym);
+                } catch (err) { console.error(err); }
+            },
+
+            renderSignal(data) {
+                const badge = document.getElementById('signal-badge');
+                const conf = document.getElementById('signal-conf');
+                const reason = document.getElementById('ai-reasoning');
+
+                badge.innerText = data.AI_SIGNAL.toUpperCase();
+                conf.innerText = `${data.confidence}%`;
+                reason.innerText = data.analysis.join(", ");
+
+                if (data.AI_SIGNAL === 'BUY') {
+                    badge.className = 'inline-block px-6 py-2 rounded-full text-2xl font-black bg-green-500/20 text-green-500 mb-2 border border-green-500/30';
+                }
+                else if (data.AI_SIGNAL === 'SELL') {
+                    badge.className = 'inline-block px-6 py-2 rounded-full text-2xl font-black bg-red-500/20 text-red-500 mb-2 border border-red-500/30';
+                }
+                else {
+                    badge.className = 'inline-block px-6 py-2 rounded-full text-2xl font-black bg-yellow-500/20 text-yellow-500 mb-2 border border-yellow-500/30';
+                }
+            },
+
+            renderChart(data) {
+                const ctx = document.getElementById('mainChart').getContext('2d');
+                if (state.chart) state.chart.destroy();
+                state.chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.map(item => item.date),
+                        datasets: [{ data: data.map(item => item.close), borderColor: '#3b82f6', fill: true, backgroundColor: 'rgba(59,130,246,0.1)', tension: 0.3, pointRadius: 0 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#64748b' }, grid: { display: false } }, y: { ticks: { color: '#64748b' } } } }
+                });
+            },
+
+            renderIndicators(rsi, macd) {
+                document.getElementById('rsi-val').innerText = rsi.RSI.toFixed(2);
+                document.getElementById('macd-val').innerText = macd.macd.toFixed(2);
+            },
+
+            async loadPortfolio() {
+                try {
+                    const data = await api.getPortfolio();
+                    const tbody = document.getElementById('portfolio-table-body');
+                    tbody.innerHTML = '';
+                    let totalVal = 0;
+                    data.portfolio.forEach(item => {
+                        const pnl = (item.current_price - item.buy_price) * item.quantity;
+                        totalVal += (item.current_price * item.quantity);
+                        const row = `
+                            <tr class="border-b border-gray-800">
+                                <td class="p-4 font-bold text-blue-400">${item.symbol}</td>
+                                <td class="p-4 text-right">${item.quantity}</td>
+                                <td class="p-4 text-right font-mono">₹ ${item.buy_price}</td>
+                                <td class="p-4 text-right font-mono">₹ ${item.current_price}</td>
+                                <td class="p-4 text-right ${pnl >= 0 ? 'text-green-500' : 'text-red-500'} font-bold">₹ ${pnl.toFixed(2)}</td>
+                                <td class="p-4 text-right"><button class="text-gray-500"><i class="fas fa-ellipsis-v"></i></button></td>
+                            </tr>
+                        `;
+                        tbody.innerHTML += row;
+                    });
+                    document.getElementById('total-portfolio-value').innerText = `₹ ${totalVal.toLocaleString()}`;
+                } catch (err) { console.error(err); }
+            },
+
+            async loadWatchlist() {
+                try {
+                    const data = await api.getWatchlist();
+                    const grid = document.getElementById('watchlist-grid');
+                    grid.innerHTML = '';
+                    data.forEach(item => {
+                        const card = `
+                        <div class="glass-card p-5 hover:border-blue-500/50 transition-all group cursor-pointer"
+                        onclick="actions.selectStock('${item.stock_symbol}')">
+                            <div class="flex justify-between items-start mb-4">
+                                <div>
+                                    <h4 class="font-bold text-lg">
+                                        ${item.stock_symbol}
+                                    </h4>
+                                    <p class="text-xs text-gray-500">
+                                        Watchlist Stock
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        `;
+                        grid.innerHTML += card;
+                    });
+                } catch (err) { console.error(err); }
+            }
+        };
+
+        const actions = {
+            async selectStock(symbol) { state.currentSymbol = symbol; router.navigate('dashboard'); },
+            async buyStock() {
+                const qty = document.getElementById('trade-qty').value;
+                try {
+                    await api.buyStock(state.currentSymbol, qty);
+                    ui.showToast('Purchase Successful', 'success');
+                    ui.loadPortfolio();
+                } catch (err) { ui.showToast('Trade Failed', 'error'); }
+            },
+            async toggleWatchlist() {
+                try {
+                    await api.addToWatchlist(state.currentSymbol);
+                    ui.showToast('Watchlist Updated', 'success');
+                } catch (err) { ui.showToast('Update Failed', 'error'); }
+            }
+        };
+
+        const websocket = {
+            connect(symbol) {
+                if (state.ws) state.ws.close();
+                state.ws = new WebSocket(`${WS_URL}/${symbol}`);
+                state.ws.onmessage = (e) => this.updateUI(JSON.parse(e.data));
+            },
+            updateUI(data) {
+                const priceEl = document.getElementById('live-price');
+                if (priceEl && data.live_price) {
+                    priceEl.innerText = data.live_price.toFixed(2);
+                }
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            auth.initApp();
+            document.getElementById('login-form').addEventListener('submit', (e) => auth.login(e));
+        });
+    </script>
+</body>
+</html>
