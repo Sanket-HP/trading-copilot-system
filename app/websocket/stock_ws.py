@@ -1,241 +1,215 @@
-from fastapi import APIRouter, WebSocket
-from starlette.websockets import WebSocketDisconnect
+from fastapi import APIRouter
 
-import asyncio
-import yfinance as yf
+# Market Services
+from app.services.market_service import (
 
-from datetime import datetime
+    get_live_stock_price,
+
+    get_stock_history
+)
+
+# Technical Indicators
+from app.services.indicator_service import (
+
+    calculate_rsi,
+
+    calculate_macd,
+
+    generate_ai_signal
+)
+
+# News Sentiment
+from app.services.news_service import (
+
+    get_news_sentiment
+)
 
 router = APIRouter()
 
-# Live WebSocket Stock Stream
-@router.websocket("/ws/stocks/{symbol}")
-async def websocket_stock_data(
-    websocket: WebSocket,
-    symbol: str
-):
+# -----------------------------------
+# Health Check API
+# -----------------------------------
+@router.get("/")
+def stock_home():
+
+    return {
+
+        "status": "success",
+
+        "message":
+        "Trading Copilot APIs Running"
+    }
+
+# -----------------------------------
+# Live Stock API
+# -----------------------------------
+@router.get("/live/{symbol}")
+def live_stock(symbol: str):
 
-    await websocket.accept()
+    return get_live_stock_price(symbol)
 
-    print(f"WebSocket connected: {symbol}")
+# -----------------------------------
+# Historical Stock Data API
+# -----------------------------------
+@router.get("/history/{symbol}")
+def history(symbol: str):
 
-    try:
+    return get_stock_history(symbol)
 
-        while True:
+# -----------------------------------
+# RSI Indicator API
+# -----------------------------------
+@router.get("/rsi/{symbol}")
+def rsi(symbol: str):
 
-            try:
+    return calculate_rsi(symbol)
 
-                # Fetch Stock Data
-                stock = yf.Ticker(symbol)
+# -----------------------------------
+# MACD Indicator API
+# -----------------------------------
+@router.get("/macd/{symbol}")
+def macd(symbol: str):
 
-                data = stock.history(
-                    period="1d"
-                )
+    return calculate_macd(symbol)
 
-                # No Data
-                if data.empty:
+# -----------------------------------
+# AI Signal API
+# -----------------------------------
+@router.get("/ai-signal/{symbol}")
+def ai_signal(symbol: str):
 
-                    await websocket.send_json({
+    return generate_ai_signal(symbol)
 
-                        "status": "error",
+# -----------------------------------
+# AI News Sentiment API
+# -----------------------------------
+@router.get("/news-sentiment/{symbol}")
+def news_sentiment(symbol: str):
 
-                        "message":
-                        f"No market data found for {symbol}"
-                    })
+    return get_news_sentiment(symbol)
 
-                    await asyncio.sleep(5)
+# -----------------------------------
+# Trending Stocks API
+# -----------------------------------
+@router.get("/trending")
+def trending_stocks():
 
-                    continue
+    return {
 
-                latest = data.iloc[-1]
+        "market": "NSE",
 
-                # Prices
-                open_price = round(
-                    float(latest["Open"]),
-                    2
-                )
+        "stocks": [
 
-                close_price = round(
-                    float(latest["Close"]),
-                    2
-                )
+            {
+                "symbol": "RELIANCE.NS",
+                "name":
+                "Reliance Industries"
+            },
 
-                high_price = round(
-                    float(latest["High"]),
-                    2
-                )
+            {
+                "symbol": "TCS.NS",
+                "name":
+                "Tata Consultancy Services"
+            },
 
-                low_price = round(
-                    float(latest["Low"]),
-                    2
-                )
+            {
+                "symbol": "INFY.NS",
+                "name":
+                "Infosys"
+            },
 
-                # Volume
-                volume = int(
-                    latest["Volume"]
-                )
+            {
+                "symbol": "HDFCBANK.NS",
+                "name":
+                "HDFC Bank"
+            }
+        ]
+    }
 
-                # Price Change
-                change = round(
-                    close_price - open_price,
-                    2
-                )
+# -----------------------------------
+# Multi Stock Market Overview API
+# -----------------------------------
+@router.get("/market-overview")
+def market_overview():
 
-                # Percentage Change
-                change_percent = 0
+    stocks = [
 
-                if open_price != 0:
+        "RELIANCE.NS",
 
-                    change_percent = round(
+        "TCS.NS",
 
-                        (change / open_price) * 100,
-                        2
-                    )
+        "INFY.NS",
 
-                # Trend
-                trend = "NEUTRAL"
+        "HDFCBANK.NS"
+    ]
 
-                if change > 0:
+    results = []
 
-                    trend = "BULLISH"
+    for symbol in stocks:
 
-                elif change < 0:
+        try:
 
-                    trend = "BEARISH"
+            # Live Price
+            live = get_live_stock_price(
+                symbol
+            )
 
-                # Direction
-                direction = "SIDEWAYS"
+            # RSI
+            rsi_data = calculate_rsi(
+                symbol
+            )
 
-                if change > 0:
+            # MACD
+            macd_data = calculate_macd(
+                symbol
+            )
 
-                    direction = "UP"
+            # AI Signal
+            ai_data = generate_ai_signal(
+                symbol
+            )
 
-                elif change < 0:
+            # News Sentiment
+            news_data = get_news_sentiment(
+                symbol
+            )
 
-                    direction = "DOWN"
+            results.append({
 
-                # Volatility
-                volatility = round(
-                    ((high_price - low_price)
-                    / open_price) * 100,
-                    2
-                )
+                "symbol": symbol,
 
-                # Volatility Level
-                volatility_level = "LOW"
+                "price":
+                live["live_price"],
 
-                if volatility > 2:
+                "RSI":
+                rsi_data["RSI"],
 
-                    volatility_level = "MEDIUM"
+                "MACD":
+                macd_data["macd"],
 
-                if volatility > 5:
+                "trend":
+                macd_data["trend"],
 
-                    volatility_level = "HIGH"
+                "signal":
+                ai_data["AI_SIGNAL"],
 
-                # Trading Score
-                trade_score = 50
+                "confidence":
+                ai_data["confidence"],
 
-                if trend == "BULLISH":
+                "news_sentiment":
+                news_data["sentiment"]
+            })
 
-                    trade_score += 20
+        except Exception as e:
 
-                if volatility < 2:
+            results.append({
 
-                    trade_score += 10
+                "symbol": symbol,
 
-                if volume > 1000000:
+                "error": str(e)
+            })
 
-                    trade_score += 10
+    return {
 
-                if change_percent > 2:
-
-                    trade_score += 10
-
-                # Market Status
-                market_status = "OPEN"
-
-                now = datetime.now()
-
-                current_hour = now.hour
-
-                current_minute = now.minute
-
-                if (
-                    current_hour < 9
-                    or
-                    (current_hour == 9 and current_minute < 15)
-                    or
-                    current_hour >= 15
-                ):
-
-                    market_status = "CLOSED"
-
-                # Timestamp
-                timestamp = now.strftime(
-                    "%H:%M:%S"
-                )
-
-                # Send Live Data
-                await websocket.send_json({
-
-                    "status": "success",
-
-                    "symbol": symbol,
-
-                    "live_price": close_price,
-
-                    "open": open_price,
-
-                    "high": high_price,
-
-                    "low": low_price,
-
-                    "change": change,
-
-                    "change_percent": change_percent,
-
-                    "trend": trend,
-
-                    "direction": direction,
-
-                    "market_status": market_status,
-
-                    "volume": volume,
-
-                    "volatility": volatility,
-
-                    "volatility_level":
-                    volatility_level,
-
-                    "trade_score": trade_score,
-
-                    "timestamp": timestamp
-                })
-
-            except Exception as inner_error:
-
-                print(
-                    f"Market Fetch Error: {inner_error}"
-                )
-
-                await websocket.send_json({
-
-                    "status": "error",
-
-                    "message": str(inner_error)
-                })
-
-            # Refresh Every 5 Seconds
-            await asyncio.sleep(5)
-
-    except WebSocketDisconnect:
-
-        print(
-            f"WebSocket disconnected: {symbol}"
-        )
-
-    except Exception as e:
-
-        print(
-            f"WebSocket error: {e}"
-        )
+        "market": results
+    }

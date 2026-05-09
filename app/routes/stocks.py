@@ -27,7 +27,7 @@ from app.services.news_service import (
 router = APIRouter()
 
 # -----------------------------------
-# Health Check
+# Health Check API
 # -----------------------------------
 @router.get("/")
 def stock_home():
@@ -37,7 +37,7 @@ def stock_home():
         "status": "success",
 
         "message":
-        "Stock APIs Running Successfully"
+        "Trading Copilot Stock APIs Running"
     }
 
 # -----------------------------------
@@ -49,7 +49,7 @@ def live_stock(symbol: str):
     return get_live_stock_price(symbol)
 
 # -----------------------------------
-# Historical Data API
+# Historical Stock Data API
 # -----------------------------------
 @router.get("/history/{symbol}")
 def history(symbol: str):
@@ -102,22 +102,118 @@ def trending_stocks():
 
             {
                 "symbol": "RELIANCE.NS",
-                "name": "Reliance Industries"
+
+                "name":
+                "Reliance Industries"
             },
 
             {
                 "symbol": "TCS.NS",
-                "name": "Tata Consultancy Services"
+
+                "name":
+                "Tata Consultancy Services"
             },
 
             {
                 "symbol": "INFY.NS",
-                "name": "Infosys"
+
+                "name":
+                "Infosys"
             },
 
             {
                 "symbol": "HDFCBANK.NS",
-                "name": "HDFC Bank"
+
+                "name":
+                "HDFC Bank"
             }
         ]
+    }
+
+# -----------------------------------
+# Multi-Stock Market Overview API
+# -----------------------------------
+@router.get("/market-overview")
+def market_overview():
+
+    stocks = [
+
+        "RELIANCE.NS",
+
+        "TCS.NS",
+
+        "INFY.NS",
+
+        "HDFCBANK.NS"
+    ]
+
+    results = []
+
+    for symbol in stocks:
+
+        try:
+
+            # Live Price
+            live = get_live_stock_price(
+                symbol
+            )
+
+            # RSI
+            rsi_data = calculate_rsi(
+                symbol
+            )
+
+            # MACD
+            macd_data = calculate_macd(
+                symbol
+            )
+
+            # AI Signal
+            ai_data = generate_ai_signal(
+                symbol
+            )
+
+            # News Sentiment
+            news_data = get_news_sentiment(
+                symbol
+            )
+
+            results.append({
+
+                "symbol": symbol,
+
+                "price":
+                live["live_price"],
+
+                "RSI":
+                rsi_data["RSI"],
+
+                "MACD":
+                macd_data["macd"],
+
+                "trend":
+                macd_data["trend"],
+
+                "signal":
+                ai_data["AI_SIGNAL"],
+
+                "confidence":
+                ai_data["confidence"],
+
+                "news_sentiment":
+                news_data["sentiment"]
+            })
+
+        except Exception as e:
+
+            results.append({
+
+                "symbol": symbol,
+
+                "error": str(e)
+            })
+
+    return {
+
+        "market": results
     }
